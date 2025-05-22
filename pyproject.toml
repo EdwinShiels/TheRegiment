@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "the-regiment"
+version = "0.1.0"
+description = "Discipline-first AI coaching system"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.100.0"
+uvicorn = "^0.22.0"
+gunicorn = "^21.2.0"
+discord-py = "^2.0.0"
+apscheduler = "^3.11.0"
+pydantic = "^1.10.0"
+python-dotenv = "^1.0.0"
+psycopg2-binary = "^2.9.0"  # PostgreSQL driver
+sqlalchemy = "^2.0.0"  # Database ORM
+alembic = "^1.12.0"  # Database migrations
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}  # JWT handling
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}  # Password hashing
+python-multipart = "^0.0.6"  # Form data handling
+email-validator = "^2.0.0"  # Email validation
+tenacity = "^8.2.0"  # Retry logic
+structlog = "^23.1.0"  # Structured logging
+
+# Optional / integrations
+redis = "^4.5.0"
+sentry-sdk = "^1.12.0"
+prometheus-client = "^0.17.0"  # Metrics
+opentelemetry-api = "^1.20.0"  # Tracing
+opentelemetry-sdk = "^1.20.0"
+opentelemetry-instrumentation-fastapi = "^0.40b0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+black = "^23.3.0"
+isort = "^5.12.0"
+flake8 = "^6.0.0"
+mypy = "^1.5.0"
+pre-commit = "^3.3.0"
+httpx = "^0.24.0"  # For async HTTP testing
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api" 
