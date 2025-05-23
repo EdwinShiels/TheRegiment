@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+-## 🏗️ THE REGIMENT BUILD DISCIPLINE
+When working on TheRegiment (MonsterCoach 2025):
+- **MANDATORY**: Update docs/audit_log/build_progress.md after each buildspec.yaml phase
+- **MANDATORY**: Validate all implementations against buildspec.yaml specifications  
+- **MANDATORY**: Mark phases complete only after full validation
+- **MANDATORY**: Escalate any misalignments before proceeding
+- **NO PHASE SKIPPING**: Dependencies must be respected in sequential order

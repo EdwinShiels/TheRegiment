@@ -1,0 +1,2040 @@
+# ⚔️ THE REGIMENT - MILITARY-GRADE BUILDSPEC
+# Project: TheRegiment (MonsterCoach 2025)
+# Architect: System enforcing lst_master.md + hst_master.md doctrine
+# Authority: Total system implementation blueprint
+
+metadata:
+  project_name: "theregiment"
+  repo: https://github.com/EdwinShiels/TheRegiment
+  default_branch: main
+  doc_source: docs/
+  prompting_guide: docs/prompting/cursor_prompt_template.md
+  version: "1.0.0"
+  tech_stack_source: "docs/tech-stack.md"
+  schema_authority: "docs/schema_definitions.md"
+  doctrine_source: "docs/lst_master.md"
+  brand_doctrine: "docs/hst_master.md"
+  enforcement_rules:
+    - "All schemas must match schema_definitions.md"
+    - "All triggers follow lst_master.md timing"
+    - "No logic merged across engines"
+    - "All missed events logged with status: missed"
+    - "All timestamps ISO 8601 UTC with explicit offset"
+    - "No silent failures - all exceptions handled/logged"
+
+# ==================================================
+# PHASE 0: FOUNDATION & REPOSITORY STRUCTURE
+# ==================================================
+
+phases:
+  - phase: 0
+    name: "Foundation - Repository Structure & Dependencies"
+    description: "Establish project structure, dependency management, and core schema validation infrastructure"
+    
+    dependencies: []
+    success_criteria:
+      - "Poetry pyproject.toml created with exact versions from tech-stack.md"
+      - "Directory structure matches project_manifest.md"
+      - "Schema validation module operational"
+      - "Environment variables template ready"
+    
+    failure_escalation_plan:
+      - "If Poetry fails → validate Python 3.12 installation"
+      - "If schema import fails → check Pydantic v2 compatibility"
+      - "If structure conflicts → escalate to architect"
+    
+    modules:
+      - name: "project_structure"
+        folder_path: "src/"
+        actions:
+          - "Create src/engines/ directory"
+          - "Create src/schemas/ directory" 
+          - "Create src/api/ directory"
+          - "Create src/bot/ directory"
+          - "Create src/core/ directory"
+          - "Create tests/ directory"
+          - "Create docs/ directory (preserve existing)"
+        
+      - name: "dependency_management"
+        folder_path: "./"
+        entrypoint: "pyproject.toml"
+        requirements:
+          python: "^3.12"
+          fastapi: "^0.111.0"
+          pydantic: "^2.6.4"
+          uvicorn: "^0.29.0"
+          apscheduler: "^4.0.0"
+          discord.py: "^2.3.2"
+          asyncpg: "^0.29.0"
+          dspy-ai: "^0.4.1"
+          python-dotenv: "^1.0.1"
+          pytest: "^8.0.0"
+          httpx: "^0.27.0"
+          pytest-asyncio: "^0.23.0"
+        
+      - name: "schema_foundation"
+        folder_path: "src/schemas/"
+        entrypoint: "__init__.py"
+        schemas:
+          reads: ["docs/schema_definitions.md"]
+          writes: ["pydantic models"]
+        source_doc: "docs/schema_definitions.md"
+        failure_modes:
+          - "Schema validation failure → halt build"
+          - "Type mismatch → escalate to architect"
+        
+      - name: "environment_setup"
+        folder_path: "./"
+        entrypoint: ".env.template"
+        variables:
+          - "DISCORD_BOT_TOKEN"
+          - "NEON_DB_URL" 
+          - "DSPY_API_KEY"
+          - "ENV=development"
+          - "PORT=8000"
+        source_doc: "docs/infrastructure/env_variables.md"
+        
+      - name: "docker_infrastructure"
+        folder_path: "./"
+        files:
+          - "Dockerfile.backend"
+          - "Dockerfile.bot" 
+          - "docker-compose.yml"
+          - ".dockerignore"
+        functions:
+          - "setup_backend_container()"
+          - "setup_bot_container()"
+          - "configure_compose_services()"
+        configuration:
+          - "Multi-stage builds for optimization"
+          - "Development volume mounts"
+          - "Network configuration for services"
+          - "Environment variable injection"
+        source_doc: "docs/infrastructure/docker.md"
+
+# ==================================================
+# PHASE 1: LOGGING INFRASTRUCTURE
+# ==================================================
+
+  - phase: 1
+    name: "Logging Infrastructure - Structured JSON Logging"
+    description: "Establish strict JSON logging format enforcement as per lst_master.md requirements"
+    
+    dependencies: [0]
+    success_criteria:
+      - "Structured JSON logger operational"
+      - "ISO 8601 UTC timestamp enforcement"
+      - "Log level filtering functional"
+      - "Error context capture working"
+      - "All engines use standardized logger"
+    
+    failure_escalation_plan:
+      - "If logger setup fails → check log directory permissions"
+      - "If JSON formatting fails → validate log schema"
+      - "If timestamp validation fails → check timezone config"
+    
+    modules:
+      - name: "structured_logger"
+        folder_path: "src/core/logging/"
+        entrypoint: "logger.py"
+        schemas:
+          reads: ["log configuration"]
+          writes: ["structured JSON logs"]
+        functions:
+          - "setup_logger(module_name, log_level)"
+          - "log_event(level, message, context, user_id=None)"
+          - "log_missed_event(user_id, event_type, timestamp)"
+          - "log_engine_failure(engine_name, error, context)"
+        log_format:
+          - "timestamp: ISO 8601 UTC with explicit offset"
+          - "level: DEBUG/INFO/WARNING/ERROR/CRITICAL"
+          - "module: engine/component name"
+          - "message: human readable description"
+          - "context: structured data object"
+          - "user_id: client identifier (if applicable)"
+          - "trace_id: request/operation tracking"
+        
+      - name: "log_validation"
+        folder_path: "src/core/logging/"
+        entrypoint: "validation.py"
+        functions:
+          - "validate_log_format(log_entry)"
+          - "enforce_timestamp_format(timestamp)"
+          - "sanitize_user_data(context)"
+        validation_rules:
+          - "All timestamps must be ISO 8601 UTC"
+          - "No PII in log messages"
+          - "Context must be valid JSON"
+          - "User_id must match client_profiles format"
+        source_doc: "docs/lst_master.md - Log Format Overview"
+
+# ==================================================
+# PHASE 2: CORE BACKEND INFRASTRUCTURE
+# ==================================================
+
+  - phase: 2
+    name: "Core Backend - Database & Schema Validation"
+    description: "Establish NeonDB connection, schema enforcement, and core backend utilities"
+    
+    dependencies: [0, 1]
+    success_criteria:
+      - "NeonDB connection established"
+      - "All Pydantic models validate against schema_definitions.md"
+      - "Database tables created matching schema"
+      - "Core utilities operational"
+    
+    failure_escalation_plan:
+      - "If DB connection fails → verify NEON_DB_URL format"
+      - "If schema mismatch → check schema_definitions.md alignment"
+      - "If table creation fails → escalate constraint conflicts"
+    
+    modules:
+      - name: "database_connection"
+        folder_path: "src/core/"
+        entrypoint: "database.py"
+        schemas:
+          reads: ["NEON_DB_URL environment variable"]
+          writes: ["asyncpg connection pool"]
+        dependencies: ["asyncpg", "python-dotenv"]
+        failure_modes:
+          - "Connection timeout → retry 3x, escalate"
+          - "Auth failure → verify credentials"
+        
+      - name: "database_migration"
+        folder_path: "src/core/"
+        entrypoint: "migrations.py"
+        schemas:
+          reads: ["docs/schema_definitions.md"]
+          writes: ["NeonDB tables", "indexes", "constraints"]
+        functions:
+          - "create_tables_from_schema()"
+          - "setup_indexes()"
+          - "validate_table_structure()"
+        dependencies: ["database_connection"]
+        failure_modes:
+          - "Table creation fails → check constraint conflicts"
+          - "Schema mismatch → halt build, escalate"
+        source_doc: "docs/schema_definitions.md"
+        
+      - name: "pydantic_schemas"
+        folder_path: "src/schemas/"
+        entrypoint: "models.py"
+        schemas:
+          reads: ["docs/schema_definitions.md"]
+          writes: ["ClientProfileSchema", "MealLogSchema", "TrainingLogSchema", "CardioLogSchema", "CheckinLogSchema", "JobCardSchema", "TrainingTemplateSchema", "MealTemplateSchema"]
+        validation_rules:
+          - "All datetime fields = ISO 8601 UTC"
+          - "All enums = lowercase snake_case" 
+          - "All booleans = explicit true/false"
+          - "All logs must include user_id, timestamp, status"
+        source_doc: "docs/schema_definitions.md"
+        failure_modes:
+          - "Schema drift → halt build, escalate"
+          - "Invalid enum → check schema_definitions.md"
+        
+      - name: "core_utilities"
+        folder_path: "src/core/"
+        entrypoint: "utils.py"
+        functions:
+          - "timezone_calculator(client_offset, utc_time)"
+          - "validate_schema(data, schema_class)"
+          - "log_missed_event(user_id, event_type, date)"
+          - "retry_logic(func, max_retries=3)"
+        auth_roles: ["internal - no external access"]
+
+# ==================================================
+# PHASE 3: ONBOARDING ENGINE
+# ==================================================
+
+  - phase: 3
+    name: "Engine - Onboarding Engine"
+    description: "Discord-based client onboarding with profile creation and Battle Station finalization"
+    
+    dependencies: [0, 1, 2]
+    success_criteria:
+      - "Discord slash command /onboard functional"
+      - "Client profile stored in NeonDB"
+      - "Auto-calculation of start_date (next Tuesday)"
+      - "Battle Station can finalize profiles"
+    
+    failure_escalation_plan:
+      - "If Discord command fails → check bot permissions"
+      - "If DB write fails → retry 3x, log error"
+      - "If schema validation fails → check input format"
+    
+    modules:
+      - name: "onboarding_engine"
+        folder_path: "src/engines/onboarding/"
+        entrypoint: "engine.py"
+        runner: "Discord command triggered"
+        schemas:
+          reads: ["Discord form inputs"]
+          writes: ["client_profiles table"]
+        triggers: ["/onboard Discord slash command"]
+        functions:
+          - "collect_client_data(discord_interaction)"
+          - "calculate_start_date(current_date)"
+          - "create_client_profile(form_data)"
+          - "send_welcome_message(user_id)"
+        failure_modes:
+          - "Invalid form data → prompt retry"
+          - "DB write failure → retry 3x, escalate"
+          - "Discord API timeout → retry message send"
+        test_coverage: ["unit: form validation", "integration: DB write", "mock: Discord API"]
+        auth_roles: ["Discord users - rate limited"]
+        rate_limits: "1 onboard per user lifetime"
+        source_doc: "docs/engines/lst_onboarding_engine.md"
+        
+      - name: "onboarding_discord_handler"
+        folder_path: "src/bot/"
+        entrypoint: "onboard_commands.py" 
+        triggers: ["Discord slash commands"]
+        commands:
+          - "/onboard - Client registration form"
+        validation:
+          - "Height/weight within reasonable bounds"
+          - "Timezone offset format UTC±X"
+          - "Email format validation"
+        failure_modes:
+          - "Invalid input → show error, allow retry"
+          - "User already exists → show error message"
+
+# ==================================================
+# PHASE 4: MEAL DELIVERY ENGINE
+# ==================================================
+
+  - phase: 4
+    name: "Engine - Meal Delivery Engine"
+    description: "Weekly meal plan selection, shopping list generation, and daily meal protocol delivery"
+    
+    dependencies: [0, 1, 2, 3]
+    success_criteria:
+      - "Weekly plan selection (Friday 21:00 deadline)"
+      - "Saturday 06:00 shopping list delivery"
+      - "Daily 06:00 meal protocol delivery"
+      - "✅/❌ button logging functional"
+      - "Missed meals auto-logged by 22:00"
+    
+    failure_escalation_plan:
+      - "If no plan selected → auto-assign Plan A"
+      - "If Discord delivery fails → retry 3x, log as missed"
+      - "If meal compiler fails → fallback to default plan"
+    
+    modules:
+      - name: "meal_compiler"
+        folder_path: "src/engines/meal_delivery/"
+        entrypoint: "compiler.py"
+        runner: "Weekly triggered (Friday post-selection)"
+        schemas:
+          reads: ["client_profiles", "meal_templates", "macro_targets"]
+          writes: ["compiled meal plans JSON"]
+        functions:
+          - "compile_weekly_plan(client_id, template_id, macros)"
+          - "calculate_portions(macro_targets, template_foods)"
+          - "generate_shopping_list(weekly_plan)"
+        failure_modes:
+          - "Template not found → fallback to Plan A"
+          - "Macro calculation error → use default ratios"
+        
+      - name: "meal_delivery_runner"
+        folder_path: "src/engines/meal_delivery/"
+        entrypoint: "runner.py"
+        runner: "APScheduler - hourly check for 06:00 client time"
+        schemas:
+          reads: ["client_profiles", "compiled_meal_plans"]
+          writes: ["meal_logs"]
+          pydantic_schemas: ["ClientProfileSchema", "MealLogSchema", "MealTemplateSchema"]
+        triggers: ["scheduler: 06:00 client local time daily"]
+        pause_check_logic:
+          - "Skip if client_profiles.paused = true"
+          - "Skip if client_profiles.start_date > today"
+          - "Continue if client active and past start date"
+        functions:
+          - "check_delivery_time(client_timezone)"
+          - "send_daily_meal_protocol(client_id, day_meals)"
+          - "handle_meal_button_response(interaction)"
+          - "auto_log_missed_meals()"
+        failure_modes:
+          - "Discord timeout → retry 3x"
+          - "Button interaction fail → log error, continue"
+          - "No meal plan → log missed, escalate"
+        test_coverage: ["unit: timezone calc", "integration: Discord mock", "fallback: retry logic"]
+        source_doc: "docs/engines/lst_meal_delivery_engine.md"
+        
+      - name: "meal_plan_selection"
+        folder_path: "src/engines/meal_delivery/"
+        entrypoint: "plan_selection.py"
+        runner: "APScheduler - Friday 21:00"
+        triggers: ["scheduler: Friday 21:00 client time"]
+        functions:
+          - "send_plan_selection_prompt(client_id)"
+          - "handle_plan_choice(interaction, plan_id)"
+          - "apply_default_plan_if_missed(client_id)"
+        failure_modes:
+          - "No selection by deadline → auto-assign Plan A"
+          - "Invalid plan choice → prompt retry once"
+
+# ==================================================
+# PHASE 5: TRAINING DISPATCHER
+# ==================================================
+
+  - phase: 5
+    name: "Engine - Training Dispatcher"
+    description: "Daily workout delivery based on training blocks, top set logging, and progression tracking"
+    
+    dependencies: [0, 1, 2, 3]
+    success_criteria:
+      - "Training missions delivered 07:00 client time on training days"
+      - "Exercise library operational"
+      - "Top set logging with weight/reps capture"
+      - "Last set recall functional"
+      - "Missed sessions auto-logged"
+    
+    failure_escalation_plan:
+      - "If training block missing → escalate to Battle Station"
+      - "If exercise library corrupt → use fallback exercises"
+      - "If log validation fails → prompt user retry"
+    
+    modules:
+      - name: "training_dispatcher"
+        folder_path: "src/engines/training/"
+        entrypoint: "dispatcher.py"
+        runner: "APScheduler - hourly check for 07:00 client time"
+        schemas:
+          reads: ["client_profiles", "training_templates", "exercise_library"]
+          writes: ["training_logs"]
+          pydantic_schemas: ["ClientProfileSchema", "TrainingLogSchema", "TrainingTemplateSchema"]
+        triggers: ["scheduler: 07:00 client time on training days only"]
+        pause_check_logic:
+          - "Skip if client_profiles.paused = true"
+          - "Skip if client_profiles.start_date > today"
+          - "Continue if client active and past start date"
+        functions:
+          - "check_training_day(client_id, block_schedule)"
+          - "get_workout_for_day(block_id, week, day_index)"
+          - "send_workout_mission(client_id, exercises)"
+          - "recall_last_sets(client_id, exercise_ids)"
+        failure_modes:
+          - "Block not found → escalate to coach"
+          - "Exercise missing → use fallback exercise"
+          - "Discord delivery fail → retry 3x, log missed"
+        
+      - name: "exercise_library"
+        folder_path: "src/engines/training/"
+        entrypoint: "exercise_lib.py"
+        schemas:
+          reads: ["exercise definitions JSON/DB"]
+          writes: ["exercise metadata"]
+        data_structure:
+          - "exercise_id: string"
+          - "name: string"
+          - "primary_muscle_group: string"
+          - "video_url: string"
+          - "tags: array"
+        
+      - name: "top_set_logger"
+        folder_path: "src/engines/training/"
+        entrypoint: "set_logger.py"
+        runner: "Discord interaction triggered"
+        schemas:
+          reads: ["Discord modal inputs"]
+          writes: ["training_logs"]
+        functions:
+          - "validate_set_input(weight, reps)"
+          - "log_top_set(user_id, exercise_id, weight, reps)"
+          - "update_progression_tracking(user_id, exercise_id)"
+        validation:
+          - "Weight > 0 and < 1000kg"
+          - "Reps > 0 and < 100"
+          - "Exercise_id exists in library"
+        failure_modes:
+          - "Invalid input → show error, allow retry"
+          - "DB write fail → retry 3x, escalate"
+        test_coverage: ["unit: input validation", "integration: DB write", "mock: Discord modal"]
+        source_doc: "docs/engines/lst_training_dispatcher.md"
+
+# ==================================================
+# PHASE 6: CARDIO REGIMENT ENGINE  
+# ==================================================
+
+  - phase: 6
+    name: "Engine - Cardio Regiment Engine"
+    description: "Daily cardio assignment delivery and minutes logging with compliance tracking"
+    
+    dependencies: [0, 1, 2, 3]
+    success_criteria:
+      - "Daily cardio targets delivered with meal protocol"
+      - "Minutes input logging functional"
+      - "Underperformed vs completed status tracking"
+      - "Auto-logging of missed cardio sessions"
+    
+    failure_escalation_plan:
+      - "If cardio target missing → use default 30min"
+      - "If logging fails → retry input prompt"
+      - "If invalid minutes → prompt correction"
+    
+    modules:
+      - name: "cardio_regiment"
+        folder_path: "src/engines/cardio/"
+        entrypoint: "regiment.py"
+        runner: "Integrated with meal delivery at 06:00"
+        schemas:
+          reads: ["client_profiles.cardio_minutes"]
+          writes: ["cardio_logs"]
+        triggers: ["piggyback on meal delivery 06:00"]
+        functions:
+          - "get_cardio_assignment(client_id)"
+          - "send_cardio_protocol(client_id, minutes, hr_zone)"
+          - "log_cardio_completion(user_id, actual_minutes)"
+          - "calculate_compliance_status(assigned, actual)"
+        failure_modes:
+          - "No assignment → use default 30min"
+          - "Invalid minutes → prompt retry"
+          - "Negative minutes → reject input"
+        
+      - name: "cardio_logger"
+        folder_path: "src/engines/cardio/"
+        entrypoint: "logger.py"
+        runner: "Discord interaction triggered"
+        schemas:
+          reads: ["Discord input"]
+          writes: ["cardio_logs"]
+        validation:
+          - "Minutes >= 0 and <= 300"
+          - "Client has active cardio assignment"
+        status_logic:
+          - "actual >= assigned → completed"
+          - "actual < assigned → underperformed"
+          - "no log by 22:00 → missed"
+        test_coverage: ["unit: status calculation", "integration: logging"]
+        source_doc: "docs/engines/lst_cardio_regiment_engine.md"
+
+# ==================================================
+# PHASE 7: CHECK-IN ANALYZER
+# ==================================================
+
+  - phase: 7
+    name: "Engine - Check-In Analyzer" 
+    description: "Daily morning check-ins with weight, mood, soreness, stress, sleep tracking"
+    
+    dependencies: [0, 1, 2, 3]
+    success_criteria:
+      - "Check-in prompts delivered 05:30 client time"
+      - "Multi-field data capture (weight, mood, soreness, stress, sleep)"
+      - "Emoji button interface functional"
+      - "Auto-flagging missed check-ins by 12:00"
+    
+    failure_escalation_plan:
+      - "If Discord modal fails → fallback to simple text input"
+      - "If weight validation fails → prompt correction"
+      - "If no check-in by 12:00 → auto-log as missed"
+    
+    modules:
+      - name: "checkin_analyzer"
+        folder_path: "src/engines/checkin/"
+        entrypoint: "analyzer.py"
+        runner: "APScheduler - hourly check for 05:30 client time"
+        schemas:
+          reads: ["client_profiles"]
+          writes: ["checkin_logs"]
+          pydantic_schemas: ["ClientProfileSchema", "CheckinLogSchema"]
+        triggers: ["scheduler: 05:30 client time daily"]
+        pause_check_logic:
+          - "Skip if client_profiles.paused = true"
+          - "Skip if client_profiles.start_date > today"
+          - "Continue if client active and past start date"
+        functions:
+          - "send_checkin_prompt(client_id)"
+          - "process_checkin_data(interaction_data)"
+          - "validate_weight_input(weight_kg)"
+          - "auto_flag_missed_checkins()"
+        failure_modes:
+          - "Modal submission fail → allow text fallback"
+          - "Invalid weight → prompt correction"
+          - "Emoji not selected → require selection"
+        
+      - name: "checkin_interface"
+        folder_path: "src/engines/checkin/"
+        entrypoint: "interface.py"
+        runner: "Discord interaction triggered"
+        ui_elements:
+          - "Weight input box (kg, 1 decimal)"
+          - "Mood buttons: 💪/😐/😕"
+          - "Soreness buttons: 🟢/🟡/🔴"
+          - "Stress buttons: 🌿/⚡/💣"
+          - "Sleep buttons: 😵/🔥/💤"
+          - "Notes text area (optional, 250 char max)"
+        validation:
+          - "Weight: 30-300kg range"
+          - "All emoji fields required except notes"
+          - "Submission deadline: 12:00 client time"
+        failure_modes:
+          - "Incomplete form → highlight missing fields"
+          - "Out of range weight → show error message"
+        test_coverage: ["unit: validation logic", "integration: Discord modal", "timeout: missed flagging"]
+        source_doc: "docs/engines/lst_checkin_analyzer.md"
+
+# ==================================================
+# PHASE 8: INFRACTION MONITOR ENGINE
+# ==================================================
+
+  - phase: 8
+    name: "Engine - Infraction Monitor"
+    description: "Passive compliance sentinel that scans missed actions, escalates warnings, and triggers accountability restrictions"
+    
+    dependencies: [0, 1, 2, 4, 5, 6, 7]
+    success_criteria:
+      - "Hourly compliance scans operational"
+      - "Job card generation for violations"
+      - "Discord DM escalation functional"
+      - "Refeed blocking mechanism active"
+      - "Public callout system (if enabled)"
+    
+    failure_escalation_plan:
+      - "If log scan fails → skip problematic records, continue"
+      - "If Discord DM fails → retry 3x, log in Battle Station"
+      - "If job card creation fails → retry 3x, escalate"
+    
+    modules:
+      - name: "infraction_monitor"
+        folder_path: "src/engines/infraction/"
+        entrypoint: "monitor.py"
+        runner: "APScheduler - hourly scan"
+        schemas:
+          reads: ["meal_logs", "training_logs", "cardio_logs", "checkin_logs", "client_profiles"]
+          writes: ["job_cards", "client_profiles.blocked_refeed"]
+          pydantic_schemas: ["MealLogSchema", "TrainingLogSchema", "CardioLogSchema", "CheckinLogSchema", "ClientProfileSchema", "JobCardSchema"]
+        triggers: ["scheduler: hourly UTC"]
+        pause_check_logic:
+          - "Skip if client_profiles.paused = true"
+          - "Skip if client_profiles.start_date > today" 
+          - "Process all active clients for compliance violations"
+        functions:
+          - "scan_user_infractions(user_id, lookback_days)"
+          - "detect_meal_violations(user_logs)"
+          - "detect_training_gaps(user_logs)"
+          - "detect_cardio_skips(user_logs)"
+          - "detect_checkin_misses(user_logs)"
+          - "calculate_infraction_streak(user_id)"
+        failure_modes:
+          - "No logs found → skip user silently"
+          - "Missing user_id → skip record"
+          - "Paused client → skip all logic"
+          - "Invalid log structure → quarantine + flag"
+        
+      - name: "compliance_scanner"
+        folder_path: "src/engines/infraction/"
+        entrypoint: "scanner.py"
+        functions:
+          - "evaluate_missed_meals(logs, threshold=2, window_hours=48)"
+          - "evaluate_missed_training(logs, threshold=2, window_days=7)"
+          - "evaluate_missed_checkins(logs, threshold=2, window_days=7)"
+          - "evaluate_missed_cardio(logs, threshold=3, window_days=7)"
+        violation_rules:
+          - "Missed 2+ meals in 48hr → soft_compliance flag"
+          - "Missed 2+ trainings in 7 days → training_inconsistency flag"
+          - "Missed 2+ check-ins in week → non_responding_client flag"
+          - "Cardio skipped 3+ times in week → grit_violation flag"
+        
+      - name: "escalation_handler"
+        folder_path: "src/engines/infraction/"
+        entrypoint: "escalation.py"
+        runner: "Triggered by infraction detection"
+        schemas:
+          reads: ["infraction results"]
+          writes: ["Discord DMs", "client_profiles.blocked_refeed", "public Discord messages"]
+        escalation_thresholds:
+          - "3+ infractions in 7 days → Discord DM warning"
+          - "5+ infractions in 10 days → block refeed access"
+          - "7+ infractions in 14 days → public callout (if enabled)"
+        functions:
+          - "send_private_warning(user_id, infraction_count)"
+          - "block_refeed_access(user_id)"
+          - "post_public_callout(user_id, violations)"
+        failure_modes:
+          - "Discord API timeout → retry 3x"
+          - "Refeed block write fail → retry 3x, escalate"
+          - "Public callout disabled → skip silently"
+        
+      - name: "job_card_creator"
+        folder_path: "src/engines/infraction/"
+        entrypoint: "job_cards.py"
+        schemas:
+          reads: ["infraction analysis"]
+          writes: ["job_cards table"]
+        job_card_triggers:
+          - "Any compliance violation detected"
+          - "Escalation threshold reached"
+          - "Pattern changes in behavior"
+        functions:
+          - "create_compliance_job_card(user_id, flags, summary)"
+          - "update_existing_job_card(user_id, new_flags)"
+        failure_modes:
+          - "DB write failure → retry 3x, escalate to Battle Station"
+          - "Duplicate job card → merge flags"
+        test_coverage: ["unit: violation detection", "integration: job card creation", "mock: Discord escalation"]
+        source_doc: "docs/engines/lst_infraction_monitor.md"
+
+# ==================================================
+# PHASE 9: DSPY FLAG ENGINE
+# ==================================================
+
+  - phase: 9
+    name: "Engine - DSPy Flag Engine"
+    description: "Weekly AI-powered compliance analysis and Job Card generation for coach review"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    success_criteria:
+      - "Weekly trigger Sunday 22:00 UTC"
+      - "Multi-source data aggregation from all engines"
+      - "Pattern recognition for compliance/performance issues"
+      - "Job Card generation with actionable insights"
+      - "No auto-adjustments - analysis only"
+    
+    failure_escalation_plan:
+      - "If DSPy API fails → retry 3x, generate basic job card"
+      - "If data aggregation fails → flag incomplete analysis"
+      - "If job card generation fails → create manual template"
+    
+    modules:
+      - name: "dspy_flag_engine"
+        folder_path: "src/engines/dspy/"
+        entrypoint: "flag_engine.py"
+        runner: "APScheduler - Sunday 22:00 UTC weekly"
+        schemas:
+          reads: ["meal_logs", "training_logs", "cardio_logs", "checkin_logs", "client_profiles"]
+          writes: ["job_cards"]
+          pydantic_schemas: ["MealLogSchema", "TrainingLogSchema", "CardioLogSchema", "CheckinLogSchema", "ClientProfileSchema", "JobCardSchema"]
+        triggers: ["scheduler: Sunday 22:00 UTC weekly"]
+        dspy_contract_enforcement:
+          - "Data aggregation must include all log types from past 7 days"
+          - "DSPy model must receive structured JSON payload"
+          - "Response must be valid JobCardSchema format"
+          - "No direct client modifications - analysis only"
+          - "Job cards injected into UI via Battle Station API"
+        pause_check_logic:
+          - "Skip if client_profiles.paused = true"
+          - "Include clients with start_date <= 7 days ago"
+          - "Process all eligible clients for weekly analysis"
+        functions:
+          - "aggregate_weekly_data(client_id, week_start)"
+          - "analyze_compliance_patterns(client_data)"
+          - "detect_performance_flags(training_data, checkin_data)"
+          - "generate_job_card(client_id, flags, analysis)"
+        ai_integration:
+          - "DSPy powered pattern recognition"
+          - "Compliance trend analysis"
+          - "Performance stagnation detection"
+        failure_modes:
+          - "DSPy timeout → use fallback analysis rules"
+          - "Incomplete data → flag partial analysis"
+          - "JSON parse error → escalate malformed response"
+        
+      - name: "compliance_analyzer"
+        folder_path: "src/engines/dspy/"
+        entrypoint: "compliance.py"
+        functions:
+          - "calculate_meal_compliance_rate(logs)"
+          - "identify_training_gaps(logs)" 
+          - "assess_cardio_consistency(logs)"
+          - "evaluate_checkin_frequency(logs)"
+        flag_conditions:
+          - "Missed check-in 2+ times → flag"
+          - "Meal compliance < 80% → flag"
+          - "Training logs missing 2+ sessions → flag"
+          - "Cardio underperformed 3+ times → flag"
+          - "Weight stagnant + full compliance → flag"
+        
+      - name: "job_card_generator"
+        folder_path: "src/engines/dspy/"
+        entrypoint: "job_cards.py"
+        schemas:
+          reads: ["analysis results"]
+          writes: ["job_cards table"]
+        job_card_format:
+          - "user_id: string"
+          - "summary: string (max 500 chars)"
+          - "flags: array of flag types"
+          - "action_suggested: enum"
+          - "resolved: boolean"
+        test_coverage: ["unit: flag detection", "integration: DSPy mock", "fallback: offline analysis"]
+        source_doc: "docs/engines/lst_dspy_flag_engine.md"
+
+# ==================================================
+# PHASE 10: AUTOMATION SCHEDULER
+# ==================================================
+
+  - phase: 10
+    name: "Engine - Automation Scheduler"
+    description: "APScheduler-based master timekeeper for all engine triggers and timezone management"
+    
+    dependencies: [0, 1, 2]
+    success_criteria:
+      - "APScheduler running with timezone awareness"
+      - "Hourly client timezone evaluation"
+      - "All engine triggers registered and firing"
+      - "Retry queue for failed operations"
+      - "Sunday weekly scans operational"
+    
+    failure_escalation_plan:
+      - "If scheduler fails to start → check APScheduler config"
+      - "If timezone calc errors → validate client timezone_offset format"
+      - "If engine dispatch fails → add to retry queue"
+    
+    modules:
+      - name: "automation_scheduler"
+        folder_path: "src/engines/scheduler/"
+        entrypoint: "scheduler.py"
+        runner: "APScheduler main process"
+        schemas:
+          reads: ["client_profiles.timezone_offset", "client_profiles.paused", "client_profiles.start_date"]
+          writes: ["scheduler logs", "retry_queue"]
+        schedule_jobs:
+          - "hourly: evaluate_client_triggers()"
+          - "Sunday 22:00 UTC: run_weekly_scans()"
+          - "every 5min: process_retry_queue()"
+        functions:
+          - "calculate_client_local_time(utc_now, timezone_offset)"
+          - "dispatch_engine_for_client(engine_name, client_id)"
+          - "add_to_retry_queue(failed_operation)"
+          - "check_client_active_status(client_id)"
+        
+      - name: "timezone_manager"
+        folder_path: "src/engines/scheduler/"
+        entrypoint: "timezone_calc.py"
+        functions:
+          - "parse_timezone_offset(offset_string)"
+          - "convert_utc_to_client_time(utc_time, offset)"
+          - "validate_timezone_format(offset)"
+        validation:
+          - "Format: UTC±X where X is integer hours"
+          - "Range: UTC-12 to UTC+14"
+        
+      - name: "engine_dispatcher"
+        folder_path: "src/engines/scheduler/"
+        entrypoint: "dispatcher.py"
+        trigger_map:
+          - "05:30 → checkin_analyzer"
+          - "06:00 → meal_delivery + cardio_regiment"
+          - "07:00 → training_dispatcher (if training day)"
+          - "12:00 → checkin miss flagging"
+          - "22:00 → missed event auto-logging"
+          - "hourly → infraction_monitor"
+        functions:
+          - "dispatch_checkin(client_id)"
+          - "dispatch_meals(client_id)"
+          - "dispatch_training(client_id)"
+          - "dispatch_cardio(client_id)"
+          - "dispatch_infraction_scan(client_id)"
+        failure_modes:
+          - "Engine exception → add to retry queue"
+          - "Client paused → skip silently"
+          - "Start date future → skip silently"
+        test_coverage: ["unit: timezone calc", "integration: engine dispatch", "mock: scheduler jobs"]
+        source_doc: "docs/engines/lst_automation_scheduler.md"
+
+# ==================================================
+# PHASE 11: DISCORD BOT INTEGRATION
+# ==================================================
+
+  - phase: 11
+    name: "Discord Bot - Command Interface & Event Handling"
+    description: "Discord.py bot with slash commands, button interactions, and message delivery"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10]
+    success_criteria:
+      - "Bot connected to Discord with proper permissions"
+      - "All slash commands functional"
+      - "Button interactions handling ✅/❌ responses"
+      - "Modal forms for data input working"
+      - "Message delivery with retry logic"
+    
+    failure_escalation_plan:
+      - "If bot fails to connect → check DISCORD_BOT_TOKEN"
+      - "If command registration fails → verify bot permissions"
+      - "If message delivery fails → retry 3x, log as missed"
+    
+    modules:
+      - name: "discord_bot_main"
+        folder_path: "src/bot/"
+        entrypoint: "main.py"
+        runner: "Standalone process"
+        dependencies: ["discord.py ^2.3.2"]
+        functions:
+          - "bot_startup()"
+          - "register_slash_commands()"
+          - "setup_event_handlers()"
+        bot_permissions:
+          - "Send Messages"
+          - "Use Slash Commands"
+          - "Embed Links"
+          - "Add Reactions"
+          - "Read Message History"
+        
+      - name: "slash_commands"
+        folder_path: "src/bot/"
+        entrypoint: "commands.py"
+        commands:
+          - "/onboard - Client registration"
+          - "/pause - Coach pause client (admin only)"
+          - "/status - Show client status (admin only)"
+        auth_roles: 
+          - "/onboard: any user"
+          - "/pause, /status: coach role only"
+        
+      - name: "interaction_handlers"
+        folder_path: "src/bot/"
+        entrypoint: "interactions.py"
+        handlers:
+          - "meal_button_handler(✅/❌)"
+          - "training_modal_handler(weight/reps input)"
+          - "checkin_modal_handler(weight/mood/etc)"
+          - "cardio_input_handler(minutes)"
+          - "plan_selection_handler(A/B/C/D buttons)"
+        failure_modes:
+          - "Interaction timeout → log as missed"
+          - "Invalid input → prompt retry"
+          - "Modal error → fallback to text input"
+        
+      - name: "message_delivery"
+        folder_path: "src/bot/"
+        entrypoint: "delivery.py"
+        functions:
+          - "send_meal_protocol(user_id, meal_data)"
+          - "send_training_mission(user_id, workout_data)"
+          - "send_checkin_prompt(user_id)"
+          - "send_plan_selection(user_id)"
+        retry_logic:
+          - "Max 3 retries on Discord API failure"
+          - "Exponential backoff: 1s, 2s, 4s"
+          - "After 3 failures → log as missed, escalate"
+        test_coverage: ["unit: message formatting", "integration: Discord API mock", "retry: failure scenarios"]
+
+# ==================================================
+# PHASE 12: FASTAPI BACKEND
+# ==================================================
+
+  - phase: 12
+    name: "FastAPI Backend - API Layer & Engine Orchestration"
+    description: "REST API for Battle Station UI, engine coordination, and external integrations"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    success_criteria:
+      - "FastAPI server running on specified port"
+      - "All CRUD endpoints operational"
+      - "Schema validation on all routes"
+      - "CORS configured for Battle Station UI"
+      - "Rate limiting implemented"
+    
+    failure_escalation_plan:
+      - "If server fails to start → check port availability"
+      - "If DB connection fails → verify NEON_DB_URL"
+      - "If schema validation fails → check request format"
+    
+    modules:
+      - name: "fastapi_main"
+        folder_path: "src/api/"
+        entrypoint: "main.py"
+        runner: "uvicorn"
+        dependencies: ["fastapi ^0.111.0", "uvicorn ^0.29.0"]
+        configuration:
+          - "Port: 8000"
+          - "CORS: Battle Station UI origins only"
+          - "Rate limiting: 100 req/min per IP"
+        
+      - name: "client_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "clients.py"
+        endpoints:
+          - "GET /clients - List all clients"
+          - "GET /clients/{id} - Get client details"
+          - "PUT /clients/{id} - Update client profile"
+          - "POST /clients/{id}/pause - Pause/unpause client"
+        schemas:
+          reads: ["client_profiles"]
+          writes: ["client_profiles"]
+        auth_roles: ["coach access only"]
+        
+      - name: "logs_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "logs.py"
+        endpoints:
+          - "GET /clients/{id}/meals - Get meal logs"
+          - "GET /clients/{id}/training - Get training logs"
+          - "GET /clients/{id}/cardio - Get cardio logs"
+          - "GET /clients/{id}/checkins - Get checkin logs"
+        schemas:
+          reads: ["meal_logs", "training_logs", "cardio_logs", "checkin_logs"]
+        
+      - name: "job_cards_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "job_cards.py"
+        endpoints:
+          - "GET /job-cards - Get all open job cards"
+          - "PUT /job-cards/{id}/resolve - Mark job card as resolved"
+          - "GET /clients/{id}/job-cards - Get client job cards"
+        schemas:
+          reads: ["job_cards"]
+          writes: ["job_cards.resolved"]
+        
+      - name: "engine_control_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "engine_control.py"
+        endpoints:
+          - "POST /engines/meal/trigger - Manual meal delivery trigger"
+          - "POST /engines/training/trigger - Manual training trigger"
+          - "POST /clients/{id}/macros - Update client macros"
+          - "POST /clients/{id}/cardio - Update cardio minutes"
+        auth_roles: ["admin only"]
+        validation:
+          - "Macro updates → validate against schema"
+          - "Cardio minutes → 0-300 range"
+        test_coverage: ["unit: endpoint logic", "integration: DB updates", "auth: role validation"]
+
+# ==================================================
+# PHASE 13: BATTLE STATION UI
+# ==================================================
+
+  - phase: 13
+    name: "Battle Station UI - Coach Dashboard"
+    description: "React-based coach control panel for client management, job cards, and system oversight"
+    
+    dependencies: [0, 12]
+    success_criteria:
+      - "React app builds and runs"
+      - "Client grid dashboard operational"
+      - "Job cards panel functional"
+      - "Client detail views with edit capabilities"
+      - "Real-time data from FastAPI backend"
+    
+    failure_escalation_plan:
+      - "If build fails → check Node.js version compatibility"
+      - "If API calls fail → verify FastAPI endpoint status"
+      - "If authentication fails → check auth implementation"
+    
+    modules:
+      - name: "react_app_setup"
+        folder_path: "src/frontend/"
+        entrypoint: "package.json"
+        framework: "React 18+ with Vite"
+        dependencies:
+          - "react ^18.0.0"
+          - "vite ^4.0.0"
+          - "axios ^1.0.0"
+          - "tailwindcss ^3.0.0"
+        
+      - name: "client_dashboard"
+        folder_path: "src/frontend/src/components/"
+        entrypoint: "ClientDashboard.jsx"
+        features:
+          - "Grid layout of client cards"
+          - "Status indicators (✅/❌/⚠️)"
+          - "Real-time compliance status"
+          - "Flag notifications"
+          - "Click to open detail view"
+        api_calls:
+          - "GET /clients - Load all clients"
+          - "GET /job-cards - Load active job cards"
+        
+      - name: "client_detail_view"
+        folder_path: "src/frontend/src/components/"
+        entrypoint: "ClientDetail.jsx"
+        sections:
+          - "Profile editor (goal, timezone, dates)"
+          - "Macro sliders (P/C/F)"
+          - "Cardio minutes slider"
+          - "Training/meal template dropdowns"
+          - "Pause/resume toggle"
+          - "Logs history tabs"
+          - "Coaching notes field"
+        api_calls:
+          - "GET /clients/{id} - Load client data"
+          - "PUT /clients/{id} - Update client"
+          - "GET /clients/{id}/logs - Load logs"
+        
+      - name: "job_cards_panel"
+        folder_path: "src/frontend/src/components/"
+        entrypoint: "JobCardsPanel.jsx"
+        features:
+          - "Top banner notification area"
+          - "Job card list with severity indicators"
+          - "Resolve button functionality"
+          - "Filter by client or flag type"
+        api_calls:
+          - "GET /job-cards - Load job cards"
+          - "PUT /job-cards/{id}/resolve - Mark resolved"
+        
+      - name: "api_integration"
+        folder_path: "src/frontend/src/services/"
+        entrypoint: "api.js"
+        functions:
+          - "apiClient.get/post/put methods"
+          - "Error handling and retry logic"
+          - "Authentication headers"
+        base_url: "http://localhost:8000" (dev), configurable for prod
+        test_coverage: ["unit: API client", "integration: mock API responses"]
+        source_doc: "docs/engines/lst_battle_station_ui.md"
+
+# ==================================================
+# PHASE 14: DOCKER & CONTAINERIZATION
+# ==================================================
+
+  - phase: 14
+    name: "Docker - Containerization & Local Development"
+    description: "Docker containers for backend, bot, and development orchestration"
+    
+    dependencies: [0, 1, 2, 11, 12, 13]
+    success_criteria:
+      - "Backend Dockerfile builds successfully"
+      - "Discord bot Dockerfile builds successfully"
+      - "Docker Compose orchestrates all services"
+      - "Local development environment fully functional"
+      - "Environment variables properly injected"
+    
+    failure_escalation_plan:
+      - "If Docker build fails → check base image compatibility"
+      - "If Poetry install fails → verify pyproject.toml"
+      - "If container networking fails → check port mappings"
+    
+    modules:
+      - name: "backend_dockerfile"
+        folder_path: "./"
+        entrypoint: "Dockerfile.backend"
+        base_image: "python:3.12-slim"
+        stages:
+          - "Install Poetry"
+          - "Copy pyproject.toml and poetry.lock"
+          - "Install dependencies"
+          - "Copy source code"
+          - "Expose port 8000"
+          - "CMD uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+        
+      - name: "bot_dockerfile"
+        folder_path: "./"
+        entrypoint: "Dockerfile.bot"
+        base_image: "python:3.12-slim"
+        stages:
+          - "Install Poetry"
+          - "Install dependencies"
+          - "Copy bot source code"
+          - "CMD python src/bot/main.py"
+        
+      - name: "docker_compose"
+        folder_path: "./"
+        entrypoint: "docker-compose.yml"
+        services:
+          backend:
+            build: "./Dockerfile.backend"
+            ports: ["8000:8000"]
+            environment: [".env"]
+            depends_on: []
+          discord_bot:
+            build: "./Dockerfile.bot"
+            environment: [".env"]
+            depends_on: ["backend"]
+          frontend:
+            build: "./src/frontend"
+            ports: ["3000:3000"]
+            depends_on: ["backend"]
+        volumes:
+          - "source code mounts for development"
+        networks:
+          - "internal network for service communication"
+        
+      - name: "development_scripts"
+        folder_path: "scripts/"
+        files:
+          - "start-dev.sh - Start all services"
+          - "build-all.sh - Build all containers"
+          - "reset-db.sh - Reset database state"
+        source_doc: "docs/infrastructure/docker.md"
+
+# ==================================================
+# PHASE 15: TEST BOOTSTRAPPING
+# ==================================================
+
+  - phase: 15
+    name: "Test Bootstrapping - Mock Data & Test Infrastructure"
+    description: "Generate comprehensive test data, mocks, and fixtures for all engine testing"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    success_criteria:
+      - "Mock client profiles generated for all test scenarios"
+      - "Sample log data created for each engine type"
+      - "Discord API mocks operational"
+      - "Database test fixtures loaded"
+      - "DSPy response mocks prepared"
+    
+    failure_escalation_plan:
+      - "If mock generation fails → check schema definitions"
+      - "If fixture loading fails → verify database connection"
+      - "If Discord mocks fail → check bot permissions setup"
+    
+    modules:
+      - name: "test_data_generator"
+        folder_path: "tests/fixtures/"
+        entrypoint: "generate_test_data.py"
+        schemas:
+          reads: ["docs/schema_definitions.md"]
+          writes: ["test client profiles", "mock log entries", "sample job cards"]
+          pydantic_schemas: ["ClientProfileSchema", "MealLogSchema", "TrainingLogSchema", "CardioLogSchema", "CheckinLogSchema", "JobCardSchema"]
+        functions:
+          - "generate_client_profiles(count, scenarios)"
+          - "create_meal_log_samples(client_id, days)"
+          - "create_training_log_samples(client_id, sessions)"
+          - "create_cardio_log_samples(client_id, days)"
+          - "create_checkin_log_samples(client_id, days)"
+          - "create_infraction_scenarios(client_id)"
+        
+      - name: "discord_api_mocks"
+        folder_path: "tests/mocks/"
+        entrypoint: "discord_mocks.py"
+        functions:
+          - "mock_discord_client()"
+          - "mock_slash_command_interaction()"
+          - "mock_button_interaction()"
+          - "mock_modal_submission()"
+          - "mock_message_delivery()"
+        scenarios:
+          - "Successful interactions"
+          - "Timeout scenarios"
+          - "Rate limit responses"
+          - "Permission errors"
+        
+      - name: "engine_test_payloads"
+        folder_path: "tests/payloads/"
+        files:
+          - "meal_engine_payloads.json"
+          - "training_engine_payloads.json"
+          - "cardio_engine_payloads.json"
+          - "checkin_engine_payloads.json"
+          - "infraction_engine_payloads.json"
+          - "dspy_engine_payloads.json"
+        payload_types:
+          - "Valid input scenarios"
+          - "Edge case inputs"
+          - "Error condition inputs"
+          - "Boundary value tests"
+        
+      - name: "database_test_fixtures"
+        folder_path: "tests/fixtures/"
+        entrypoint: "db_fixtures.py"
+        functions:
+          - "setup_test_database()"
+          - "load_client_fixtures()"
+          - "load_log_fixtures()"
+          - "cleanup_test_data()"
+        test_scenarios:
+          - "Compliant client journey"
+          - "Non-compliant client scenarios"
+          - "Edge case behaviors"
+          - "System failure recovery"
+
+# ==================================================
+# PHASE 16: TESTING & VALIDATION
+# ==================================================
+
+  - phase: 16
+    name: "Testing - Comprehensive Test Suite"
+    description: "Unit, integration, and end-to-end testing across all modules"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+    success_criteria:
+      - "All engines have unit tests"
+      - "Integration tests for Discord interactions"
+      - "API endpoint tests functional"
+      - "Mock tests for external dependencies"
+      - "Test coverage > 80% for core logic"
+    
+    failure_escalation_plan:
+      - "If tests fail → fix code or update tests"
+      - "If coverage low → add missing test cases"
+      - "If mock setup fails → verify test dependencies"
+    
+    modules:
+      - name: "test_framework_setup"
+        folder_path: "tests/"
+        entrypoint: "conftest.py"
+        framework: "pytest + pytest-asyncio"
+        fixtures:
+          - "mock_discord_client"
+          - "mock_database"
+          - "test_client_profiles"
+          - "mock_dspy_responses"
+        
+      - name: "engine_unit_tests"
+        folder_path: "tests/engines/"
+        test_files:
+          - "test_meal_delivery.py"
+          - "test_training_dispatcher.py"
+          - "test_cardio_regiment.py"
+          - "test_checkin_analyzer.py"
+          - "test_infraction_monitor.py"
+          - "test_dspy_flag_engine.py"
+          - "test_automation_scheduler.py"
+        coverage_targets:
+          - "Schema validation logic"
+          - "Timezone calculations"
+          - "Failure/retry mechanisms"
+          - "Compliance calculations"
+        
+      - name: "integration_tests"
+        folder_path: "tests/integration/"
+        test_files:
+          - "test_discord_interactions.py"
+          - "test_api_endpoints.py"
+          - "test_engine_coordination.py"
+          - "test_database_operations.py"
+        mock_dependencies:
+          - "Discord API responses"
+          - "DSPy API calls"
+          - "Database connections"
+        
+      - name: "end_to_end_tests"
+        folder_path: "tests/e2e/"
+        scenarios:
+          - "Complete client onboarding flow"
+          - "Daily engine delivery cycle"
+          - "Weekly DSPy analysis cycle"
+          - "Battle Station client management"
+        automation: "Selenium/Playwright for UI testing"
+        source_doc: "docs/infrastructure/test_config.md"
+
+# ==================================================
+# PHASE 17: DEPLOYMENT & PRODUCTION
+# ==================================================
+
+  - phase: 17
+    name: "Deployment - Production Environment Setup"
+    description: "Production deployment, monitoring, and operational procedures"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    success_criteria:
+      - "Production environment deployed and operational"
+      - "Database migrations successful"
+      - "Monitoring and alerting configured"
+      - "Backup procedures implemented"
+      - "Security measures in place"
+    
+    failure_escalation_plan:
+      - "If deployment fails → rollback to previous version"
+      - "If database issues → restore from backup"
+      - "If performance issues → scale resources"
+    
+    modules:
+      - name: "production_deployment"
+        folder_path: "deployment/"
+        platform: "Railway/Render/Fly.io (TBD)"
+        configuration:
+          - "Environment variables from secrets panel"
+          - "HTTPS enforcement"
+          - "CORS configuration for production domains"
+          - "Rate limiting enabled"
+        
+      - name: "database_setup"
+        folder_path: "deployment/"
+        entrypoint: "migrate.py"
+        tasks:
+          - "Create production database tables"
+          - "Set up indexes for performance"
+          - "Configure connection pooling"
+          - "Implement backup strategy"
+        
+      - name: "monitoring_setup"
+        folder_path: "deployment/"
+        tools:
+          - "Error tracking (Sentry/Logfire)"
+          - "Performance monitoring (optional)"
+          - "Discord bot uptime monitoring"
+          - "Database health checks"
+        alerts:
+          - "Discord API failures"
+          - "Engine execution failures"
+          - "Database connection issues"
+        
+      - name: "security_hardening"
+        folder_path: "deployment/"
+        measures:
+          - "Secrets management"
+          - "API rate limiting"
+          - "CORS restrictions"
+          - "Input validation"
+          - "SQL injection prevention"
+        source_docs: ["docs/infrastructure/security.md", "docs/infrastructure/monitoring.md", "docs/infrastructure/deployment.md"]
+
+# ==================================================
+# PHASE 18: UI-BACKEND INTEGRATION & STATE MANAGEMENT
+# ==================================================
+
+  - phase: 18
+    name: "UI-Backend Integration - Real-time State Management & API Layer"
+    description: "React state management, WebSocket connections, API error handling, and real-time UI updates"
+    
+    dependencies: [0, 1, 2, 12, 13, 16]
+    success_criteria:
+      - "React state management with real-time updates"
+      - "WebSocket connection for live job card notifications"
+      - "Comprehensive error handling with user feedback"
+      - "API response caching and optimization"
+      - "Loading states and progressive data loading"
+    
+    failure_escalation_plan:
+      - "If WebSocket fails → fallback to polling"
+      - "If API timeout → show cached data with stale indicator"
+      - "If state corruption → reload from server"
+    
+    modules:
+      - name: "react_state_management"
+        folder_path: "src/frontend/src/store/"
+        entrypoint: "store.js"
+        framework: "Zustand for state management"
+        dependencies:
+          - "zustand ^4.0.0"
+          - "socket.io-client ^4.0.0"
+        stores:
+          - "clientStore - Client profiles and status"
+          - "jobCardStore - Job cards and notifications"
+          - "authStore - Authentication state"
+          - "uiStore - Loading states and errors"
+        functions:
+          - "fetchClients() - Load all clients from API"
+          - "updateClient(id, data) - Update client via API"
+          - "subscribeToJobCards() - WebSocket subscription"
+          - "handleApiError(error) - Centralized error handling"
+        
+      - name: "websocket_integration"
+        folder_path: "src/frontend/src/services/"
+        entrypoint: "websocket.js"
+        features:
+          - "Real-time job card notifications"
+          - "Client status updates"
+          - "System health indicators"
+          - "Connection status monitoring"
+        fallback_logic:
+          - "WebSocket failure → 30s polling interval"
+          - "Connection loss → exponential backoff reconnect"
+          - "Message loss → request sync from server"
+        
+      - name: "api_error_handling"
+        folder_path: "src/frontend/src/services/"
+        entrypoint: "errorHandler.js"
+        error_types:
+          - "Network timeouts → retry with exponential backoff"
+          - "Authentication errors → redirect to login"
+          - "Validation errors → show field-specific messages"
+          - "Server errors → show generic error + log details"
+        functions:
+          - "retryWithBackoff(apiCall, maxRetries=3)"
+          - "handleValidationErrors(errors, formState)"
+          - "logErrorToService(error, context)"
+        
+      - name: "fastapi_websocket_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "websocket.py"
+        endpoints:
+          - "WS /ws/job-cards - Job card notifications"
+          - "WS /ws/client-status - Client status updates"
+          - "WS /ws/system-health - System status broadcasts"
+        schemas:
+          reads: ["job_cards", "client_profiles", "system_status"]
+          writes: ["WebSocket messages"]
+        functions:
+          - "broadcast_job_card_update(job_card)"
+          - "broadcast_client_status_change(client_id, status)"
+          - "send_system_health_update()"
+        test_coverage: ["unit: WebSocket handlers", "integration: React-FastAPI connection"]
+
+# ==================================================
+# PHASE 19: AUTHENTICATION & AUTHORIZATION SYSTEM
+# ==================================================
+
+  - phase: 19
+    name: "Authentication - Discord OAuth2 & Role-Based Access Control"
+    description: "Discord OAuth2 integration, JWT tokens, role validation, and session management"
+    
+    dependencies: [0, 1, 2, 12, 13, 18]
+    success_criteria:
+      - "Discord OAuth2 login functional"
+      - "Role-based access control enforced"
+      - "JWT token generation and validation"
+      - "Session persistence and refresh"
+      - "Coach role verification via Discord"
+    
+    failure_escalation_plan:
+      - "If Discord OAuth fails → check application credentials"
+      - "If role verification fails → deny access, log attempt"
+      - "If JWT validation fails → force re-authentication"
+    
+    modules:
+      - name: "discord_oauth_integration"
+        folder_path: "src/api/auth/"
+        entrypoint: "discord_oauth.py"
+        dependencies:
+          - "python-jose[cryptography] ^3.3.0"
+          - "python-multipart ^0.0.6"
+        oauth_flow:
+          - "Discord authorization URL generation"
+          - "Authorization code exchange"
+          - "User info retrieval from Discord API"
+          - "Role verification against Discord guild"
+        functions:
+          - "generate_auth_url(state)"
+          - "exchange_code_for_token(code)"
+          - "get_user_info(access_token)"
+          - "verify_coach_role(user_id, guild_id)"
+        
+      - name: "jwt_token_management"
+        folder_path: "src/api/auth/"
+        entrypoint: "jwt_handler.py"
+        token_types:
+          - "Access token - 1 hour expiry"
+          - "Refresh token - 7 day expiry"
+        functions:
+          - "create_access_token(user_data, expires_delta)"
+          - "create_refresh_token(user_id)"
+          - "verify_token(token)"
+          - "refresh_access_token(refresh_token)"
+        security:
+          - "HS256 algorithm with secure secret"
+          - "Token blacklisting on logout"
+          - "IP address binding (optional)"
+        
+      - name: "role_based_access_control"
+        folder_path: "src/api/auth/"
+        entrypoint: "rbac.py"
+        roles:
+          - "coach - Full access to all features"
+          - "admin - System control and engine management"
+          - "viewer - Read-only access (future)"
+        permissions:
+          - "read:clients, write:clients"
+          - "read:job_cards, write:job_cards"
+          - "trigger:engines (admin only)"
+          - "manage:system (admin only)"
+        functions:
+          - "verify_permission(user_role, required_permission)"
+          - "role_required(required_role)"
+          - "permission_required(required_permission)"
+        
+      - name: "auth_routes"
+        folder_path: "src/api/routes/"
+        entrypoint: "auth.py"
+        endpoints:
+          - "GET /auth/discord - Initiate Discord OAuth"
+          - "GET /auth/callback - OAuth callback handler"
+          - "POST /auth/refresh - Refresh access token"
+          - "POST /auth/logout - Invalidate tokens"
+          - "GET /auth/me - Get current user info"
+        middleware:
+          - "CORS handling for auth endpoints"
+          - "Rate limiting on auth attempts"
+          - "CSRF protection"
+        
+      - name: "frontend_auth_integration"
+        folder_path: "src/frontend/src/auth/"
+        entrypoint: "authProvider.jsx"
+        features:
+          - "OAuth flow initiation"
+          - "Token storage and management"
+          - "Automatic token refresh"
+          - "Route protection"
+          - "Role-based component rendering"
+        functions:
+          - "initiateDiscordAuth()"
+          - "handleAuthCallback(code, state)"
+          - "refreshToken()"
+          - "logout()"
+          - "checkPermission(permission)"
+        test_coverage: ["unit: token validation", "integration: OAuth flow", "security: role enforcement"]
+
+# ==================================================
+# PHASE 20: CI/CD PIPELINE & DEPLOYMENT AUTOMATION
+# ==================================================
+
+  - phase: 20
+    name: "CI/CD - Automated Testing, Building, and Deployment Pipeline"
+    description: "GitHub Actions pipeline, Poetry lock management, Docker image versioning, and automated deployment"
+    
+    dependencies: [0, 1, 14, 16, 17]
+    success_criteria:
+      - "GitHub Actions workflow operational"
+      - "Automated testing on PR and merge"
+      - "Docker image building and tagging"
+      - "Poetry lock file validation"
+      - "Automated deployment to staging/production"
+    
+    failure_escalation_plan:
+      - "If tests fail → block deployment, notify team"
+      - "If build fails → rollback to last known good image"
+      - "If deployment fails → automatic rollback procedure"
+    
+    modules:
+      - name: "github_actions_workflow"
+        folder_path: ".github/workflows/"
+        entrypoint: "ci-cd.yml"
+        triggers:
+          - "push to main branch"
+          - "pull request creation/update"
+          - "manual workflow dispatch"
+        jobs:
+          - "test - Run test suite"
+          - "build - Build Docker images"
+          - "deploy-staging - Deploy to staging environment"
+          - "deploy-production - Deploy to production (manual approval)"
+        environment_secrets:
+          - "DISCORD_BOT_TOKEN"
+          - "NEON_DB_URL"
+          - "DSPY_API_KEY"
+          - "JWT_SECRET_KEY"
+          - "DOCKER_REGISTRY_TOKEN"
+        
+      - name: "poetry_lock_management"
+        folder_path: ".github/workflows/"
+        entrypoint: "poetry-check.yml"
+        validation_steps:
+          - "Poetry lock file up to date"
+          - "No security vulnerabilities in dependencies"
+          - "Version compatibility checks"
+          - "License compliance verification"
+        functions:
+          - "poetry check --lock"
+          - "poetry audit (security scan)"
+          - "poetry show --outdated"
+        
+      - name: "docker_image_versioning"
+        folder_path: ".github/workflows/"
+        actions:
+          - "Build multi-architecture images (amd64/arm64)"
+          - "Tag with git SHA and semantic version"
+          - "Push to container registry"
+          - "Generate image manifest"
+        tagging_strategy:
+          - "latest - main branch latest"
+          - "v{version} - semantic version tags"
+          - "{git-sha} - specific commit builds"
+          - "staging - staging environment image"
+        
+      - name: "deployment_automation"
+        folder_path: "deployment/scripts/"
+        entrypoint: "deploy.sh"
+        environments:
+          - "staging - Automatic deployment from main"
+          - "production - Manual approval required"
+        deployment_steps:
+          - "Database migration execution"
+          - "Environment variable updates"
+          - "Health check validation"
+          - "Traffic routing (blue-green deployment)"
+          - "Rollback capability"
+        functions:
+          - "deploy_to_environment(env, image_tag)"
+          - "run_health_checks()"
+          - "rollback_deployment(env, previous_tag)"
+        
+      - name: "environment_management"
+        folder_path: "deployment/environments/"
+        files:
+          - "staging.env.template"
+          - "production.env.template"
+          - "secrets-management.md"
+        configuration:
+          - "Environment-specific database URLs"
+          - "Feature flags for environment testing"
+          - "Resource allocation settings"
+          - "Monitoring and alerting configurations"
+        test_coverage: ["unit: deployment scripts", "integration: environment validation"]
+
+# ==================================================
+# PHASE 21: SCHEMA MIGRATION & VERSION CONTROL
+# ==================================================
+
+  - phase: 21
+    name: "Schema Migration - Database Versioning & Data Migration System"
+    description: "Database schema migration system, version control, backward compatibility, and data integrity"
+    
+    dependencies: [0, 1, 2, 20]
+    success_criteria:
+      - "Schema migration system operational"
+      - "Version tracking for database changes"
+      - "Backward compatibility maintenance"
+      - "Data migration scripts tested"
+      - "Rollback procedures functional"
+    
+    failure_escalation_plan:
+      - "If migration fails → automatic rollback"
+      - "If data corruption detected → restore from backup"
+      - "If version mismatch → halt deployment"
+    
+    modules:
+      - name: "migration_engine"
+        folder_path: "src/core/migrations/"
+        entrypoint: "migration_engine.py"
+        schemas:
+          reads: ["current database schema", "migration files"]
+          writes: ["database schema changes", "migration_history table"]
+        functions:
+          - "apply_migration(migration_file)"
+          - "rollback_migration(migration_id)"
+          - "validate_schema_integrity()"
+          - "check_migration_status()"
+        migration_types:
+          - "Schema changes (table/column modifications)"
+          - "Data transformations"
+          - "Index creation/deletion"
+          - "Constraint modifications"
+        
+      - name: "schema_versioning"
+        folder_path: "src/core/migrations/"
+        entrypoint: "versioning.py"
+        version_format: "YYYY.MM.DD.HH.MM"
+        tracking:
+          - "migration_history table"
+          - "schema_version tracking"
+          - "applied_at timestamps"
+          - "rollback_info metadata"
+        functions:
+          - "get_current_schema_version()"
+          - "get_pending_migrations()"
+          - "mark_migration_applied(migration_id)"
+          - "validate_migration_sequence()"
+        
+      - name: "migration_files"
+        folder_path: "migrations/"
+        file_structure:
+          - "001_initial_schema.sql"
+          - "002_add_job_cards_table.sql"
+          - "003_add_client_pause_field.sql"
+          - "rollback/"
+        naming_convention: "{sequence}_{description}.sql"
+        validation_rules:
+          - "All migrations must have rollback scripts"
+          - "Schema changes must be backward compatible"
+          - "Data migrations must preserve data integrity"
+        
+      - name: "data_migration_scripts"
+        folder_path: "src/core/migrations/data/"
+        entrypoint: "data_migrator.py"
+        functions:
+          - "migrate_client_data(old_format, new_format)"
+          - "validate_data_integrity(table_name)"
+          - "backup_table_before_migration(table_name)"
+          - "restore_from_backup(table_name, backup_id)"
+        data_validation:
+          - "Row count verification"
+          - "Data type validation"
+          - "Foreign key constraint checks"
+          - "Business rule validation"
+        
+      - name: "schema_compatibility_checker"
+        folder_path: "src/core/migrations/"
+        entrypoint: "compatibility.py"
+        functions:
+          - "check_backward_compatibility(old_schema, new_schema)"
+          - "identify_breaking_changes(schema_diff)"
+          - "generate_compatibility_report()"
+        compatibility_rules:
+          - "No column deletions without migration path"
+          - "No data type changes that lose precision"
+          - "No constraint additions that violate existing data"
+        test_coverage: ["unit: migration logic", "integration: database operations", "data: migration validation"]
+
+# ==================================================
+# PHASE 22: PRODUCTION MONITORING & HEALTH CHECKS
+# ==================================================
+
+  - phase: 22
+    name: "Production Monitoring - Health Checks, Metrics, and Alerting System"
+    description: "Comprehensive monitoring, health checks, performance metrics, error tracking, and alert notifications"
+    
+    dependencies: [0, 1, 17, 20, 21]
+    success_criteria:
+      - "Health check endpoints operational"
+      - "Performance metrics collection active"
+      - "Error tracking and reporting functional"
+      - "Alert notifications configured"
+      - "Dashboard for system monitoring"
+    
+    failure_escalation_plan:
+      - "If health checks fail → automatic scaling/restart"
+      - "If critical errors spike → escalate to on-call"
+      - "If metrics collection fails → fallback to basic logging"
+    
+    modules:
+      - name: "health_check_system"
+        folder_path: "src/api/monitoring/"
+        entrypoint: "health_checks.py"
+        endpoints:
+          - "GET /health - Basic service health"
+          - "GET /health/detailed - Comprehensive system status"
+          - "GET /health/ready - Readiness probe"
+          - "GET /health/live - Liveness probe"
+        health_checks:
+          - "Database connectivity"
+          - "Discord bot status"
+          - "Scheduler service status"
+          - "External API availability (DSPy)"
+          - "Memory and CPU usage"
+        functions:
+          - "check_database_health()"
+          - "check_discord_bot_status()"
+          - "check_scheduler_status()"
+          - "check_external_services()"
+        
+      - name: "performance_metrics"
+        folder_path: "src/core/monitoring/"
+        entrypoint: "metrics.py"
+        metrics_collection:
+          - "API response times"
+          - "Database query performance"
+          - "Discord message delivery success rate"
+          - "Engine execution times"
+          - "Job card generation frequency"
+        tools:
+          - "OpenTelemetry for distributed tracing"
+          - "Prometheus metrics export"
+          - "Custom business metrics"
+        functions:
+          - "record_api_latency(endpoint, duration)"
+          - "record_engine_execution(engine_name, duration, status)"
+          - "record_message_delivery(success, retry_count)"
+        
+      - name: "error_tracking"
+        folder_path: "src/core/monitoring/"
+        entrypoint: "error_tracker.py"
+        integration: "Sentry or Logfire"
+        error_categories:
+          - "Critical - System failure"
+          - "High - Engine failures"
+          - "Medium - Discord API issues"
+          - "Low - Validation errors"
+        functions:
+          - "track_error(error, context, severity)"
+          - "track_performance_issue(operation, duration)"
+          - "track_user_action(action, user_id, result)"
+        context_capture:
+          - "User ID and session info"
+          - "Request/response data"
+          - "System state at error time"
+          - "Stack trace and error details"
+        
+      - name: "alerting_system"
+        folder_path: "src/core/monitoring/"
+        entrypoint: "alerts.py"
+        alert_channels:
+          - "Discord webhook for immediate alerts"
+          - "Email for non-critical notifications"
+          - "Slack integration (optional)"
+        alert_triggers:
+          - "Health check failures > 3 consecutive"
+          - "Error rate > 5% in 5 minutes"
+          - "API response time > 10 seconds"
+          - "Discord bot disconnection"
+          - "Database connection pool exhaustion"
+        functions:
+          - "send_critical_alert(message, context)"
+          - "send_warning_alert(message)"
+          - "escalate_alert(alert_id, escalation_level)"
+        
+      - name: "monitoring_dashboard"
+        folder_path: "src/frontend/src/monitoring/"
+        entrypoint: "MonitoringDashboard.jsx"
+        widgets:
+          - "System health overview"
+          - "Active client count"
+          - "Engine execution status"
+          - "Recent errors and alerts"
+          - "Performance metrics charts"
+        api_calls:
+          - "GET /health/detailed - System status"
+          - "GET /metrics/summary - Performance data"
+          - "GET /alerts/recent - Recent alerts"
+        refresh_interval: "30 seconds for critical metrics"
+        test_coverage: ["unit: health check logic", "integration: monitoring stack", "alerts: notification delivery"]
+
+# ==================================================
+# PHASE 23: FINAL SYSTEM VALIDATION & GO-LIVE
+# ==================================================
+
+  - phase: 23
+    name: "Final Validation - System Integration Testing & Production Readiness"
+    description: "End-to-end system validation, performance testing, security audit, and production go-live checklist"
+    
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+    success_criteria:
+      - "Complete end-to-end system validation"
+      - "Performance benchmarks met"
+      - "Security audit passed"
+      - "Load testing successful"
+      - "Production readiness checklist complete"
+    
+    failure_escalation_plan:
+      - "If system validation fails → identify and fix critical issues"
+      - "If performance below targets → optimize bottlenecks"
+      - "If security issues found → address before go-live"
+    
+    modules:
+      - name: "end_to_end_validation"
+        folder_path: "tests/validation/"
+        entrypoint: "e2e_validation.py"
+        test_scenarios:
+          - "Complete client journey from onboard to weekly analysis"
+          - "All engine coordination and timing validation"
+          - "Battle Station full workflow testing"
+          - "Discord bot interaction testing"
+          - "Error handling and recovery testing"
+        validation_criteria:
+          - "All scheduled tasks execute within tolerance"
+          - "All user interactions log correctly"
+          - "Job cards generated and surfaced properly"
+          - "Authentication and authorization functional"
+        functions:
+          - "run_full_system_test()"
+          - "validate_engine_coordination()"
+          - "test_error_recovery_scenarios()"
+          - "verify_data_integrity()"
+        
+      - name: "performance_testing"
+        folder_path: "tests/performance/"
+        entrypoint: "load_testing.py"
+        test_framework: "Locust or Artillery"
+        performance_targets:
+          - "API response times < 2 seconds"
+          - "Discord message delivery < 5 seconds"
+          - "Database queries < 1 second"
+          - "System handles 100+ concurrent clients"
+        load_scenarios:
+          - "Concurrent client onboarding"
+          - "Peak daily engine execution"
+          - "Battle Station concurrent usage"
+          - "High-frequency Discord interactions"
+        functions:
+          - "run_load_test(scenario, duration, concurrent_users)"
+          - "measure_response_times(endpoint_list)"
+          - "test_database_performance(query_list)"
+          - "validate_system_stability(load_duration)"
+        
+      - name: "security_audit"
+        folder_path: "tests/security/"
+        entrypoint: "security_audit.py"
+        audit_areas:
+          - "Authentication and authorization"
+          - "Input validation and sanitization"
+          - "SQL injection prevention"
+          - "XSS protection"
+          - "API rate limiting"
+          - "Secret management"
+        security_tests:
+          - "Unauthorized access attempts"
+          - "Malicious input testing"
+          - "Token manipulation testing"
+          - "CORS configuration validation"
+        functions:
+          - "test_auth_bypass_attempts()"
+          - "test_injection_vulnerabilities()"
+          - "validate_input_sanitization()"
+          - "test_rate_limiting_effectiveness()"
+        
+      - name: "production_readiness_checklist"
+        folder_path: "deployment/checklists/"
+        entrypoint: "production_checklist.md"
+        checklist_categories:
+          infrastructure:
+            - "Database backup strategy implemented"
+            - "SSL certificates configured"
+            - "Domain and DNS configured"
+            - "Load balancer configured (if applicable)"
+          application:
+            - "All environment variables set"
+            - "Database migrations applied"
+            - "Discord bot permissions configured"
+            - "Monitoring and alerting active"
+          security:
+            - "Security headers configured"
+            - "Rate limiting enabled"
+            - "Input validation active"
+            - "Secret rotation plan in place"
+          operations:
+            - "Backup and restore procedures tested"
+            - "Rollback procedures validated"
+            - "On-call procedures documented"
+            - "User documentation complete"
+        
+      - name: "go_live_procedures"
+        folder_path: "deployment/procedures/"
+        entrypoint: "go_live.md"
+        pre_launch_steps:
+          - "Final data migration validation"
+          - "Production environment smoke test"
+          - "Monitoring dashboard validation"
+          - "Team notification and coordination"
+        launch_steps:
+          - "DNS cutover (if applicable)"
+          - "Traffic routing activation"
+          - "Real-time monitoring initiation"
+          - "User communication"
+        post_launch_monitoring:
+          - "24-hour intensive monitoring"
+          - "User feedback collection"
+          - "Performance metric validation"
+          - "Issue response procedures"
+        functions:
+          - "execute_production_cutover()"
+          - "validate_post_launch_health()"
+          - "monitor_user_adoption()"
+        test_coverage: ["integration: full system flows", "performance: load testing", "security: vulnerability scanning"]
+
+# ==================================================
+# FINAL SYSTEM INTEGRATION VALIDATION
+# ==================================================
+
+final_validation:
+  system_completeness:
+    - "All 24 phases successfully implemented"
+    - "All engine coordination validated"
+    - "UI-backend integration functional"
+    - "Authentication and authorization active"
+    - "Monitoring and alerting operational"
+    
+  production_readiness:
+    - "CI/CD pipeline operational"
+    - "Database migration system functional"
+    - "Performance targets met"
+    - "Security audit passed"
+    - "Backup and recovery procedures tested"
+    
+  operational_capability:
+    - "System operates 24/7 without manual intervention"
+    - "All client interactions properly logged and tracked"
+    - "Coach dashboard provides full system visibility"
+    - "Escalation procedures tested and documented"
+    - "Team trained on operational procedures"
+
+# ==================================================
+# PHASE DEPENDENCY MATRIX (FINAL)
+# ==================================================
+
+dependency_validation:
+  phase_0_foundation: []
+  phase_1_logging: [0]
+  phase_2_backend: [0, 1]
+  phase_3_onboarding: [0, 1, 2]
+  phase_4_meal_delivery: [0, 1, 2, 3]
+  phase_5_training: [0, 1, 2, 3]
+  phase_6_cardio: [0, 1, 2, 3]
+  phase_7_checkin: [0, 1, 2, 3]
+  phase_8_infraction: [0, 1, 2, 4, 5, 6, 7]
+  phase_9_dspy: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  phase_10_scheduler: [0, 1, 2]
+  phase_11_discord: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10]
+  phase_12_fastapi: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  phase_13_ui: [0, 12]
+  phase_14_docker: [0, 1, 2, 11, 12, 13]
+  phase_15_test_bootstrap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  phase_16_testing: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+  phase_17_deployment: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+  phase_18_ui_integration: [0, 1, 2, 12, 13, 16]
+  phase_19_authentication: [0, 1, 2, 12, 13, 18]
+  phase_20_cicd: [0, 1, 14, 16, 17]
+  phase_21_schema_migration: [0, 1, 2, 20]
+  phase_22_monitoring: [0, 1, 17, 20, 21]
+  phase_23_final_validation: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22] 
