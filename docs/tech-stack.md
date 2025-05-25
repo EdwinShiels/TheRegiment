@@ -11,28 +11,28 @@ This stack is designed for:
 ---
 
 ## 🧠 Runtime Environment
-- **Python**: `3.12`  
+- **Python**: `3.11`  
   Stable, modern async support. Compatible with FastAPI, APScheduler, DSPy, and Discord bots.
 
 - **Environment Management**: `poetry`  
   Handles all dependencies, lockfiles, and packaging via `pyproject.toml`.
 
-- **Containerization**: Docker (Python 3.12 slim)  
+- **Containerization**: Docker (Python 3.11 slim)  
   Used for local orchestration with `docker-compose`.
 
 ---
 
 ## ⚙️ Core Backend
-- **Framework**: FastAPI `^0.111.0`  
+- **Framework**: FastAPI `0.115.5`  
   Async, modular, built for schema validation and API scalability.
 
-- **Scheduler**: APScheduler `^4.0.0`  
+- **Scheduler**: APScheduler `3.10.4`  
   Timezone-aware, precision-based engine tick controller for scheduled jobs.
 
-- **Schema Engine**: Pydantic v2 `^2.6.4`  
+- **Schema Engine**: Pydantic v2 `2.5.0`  
   Lightning-fast schema validation. Bound to `schema_definitions.md`.
 
-- **Compliance AI Engine**: DSPy `^0.4.1`  
+- **Compliance AI Engine**: DSPy `2.3.4`  
   Used in `dspy_flag_engine` for weekly logic scans and recon flags.
 
 ---
@@ -54,13 +54,22 @@ This stack is designed for:
   Fully async, lightweight, ideal for Pydantic-native data access.
 
 - **ORM**: ❌ None  
-  Direct DB access using `asyncpg` and Pydantic models.
+  Direct DB access using `asyncpg` and Pydantic models. Schema authority via `schema_definitions.md`.
 
 ---
 
 ## 🧪 Dev & Testing
-- **Testing**: `pytest`, `pytest-asyncio`, `httpx`  
+- **Testing**: pytest `^8.0.0`, pytest-asyncio `^0.23.0`, httpx `^0.27.0`  
   Used for engine runner tests, API routes, Discord mocks.
+
+- **HTTP Client**: httpx `^0.27.0`  
+  Async HTTP client for external API calls and testing.
+
+- **Environment**: python-dotenv `^1.0.1`  
+  Environment variable management for local development.
+
+- **Server**: uvicorn `0.22.0`  
+  ASGI server for FastAPI applications.
 
 - **Logging**: `logfire.dev` (or `structlog`)  
   Structured, JSON logs with status annotations.
@@ -112,5 +121,21 @@ This stack is designed for:
 - All timestamps in ISO 8601 with explicit UTC offset
 
 ---
+
+## 📋 Exact Working Versions (from pyproject.toml)
+```toml
+python = "^3.11"
+fastapi = "0.115.5"
+pydantic = "2.5.0"
+uvicorn = "0.22.0"
+python-dotenv = "^1.0.1"
+discord.py = "^2.3.2"
+asyncpg = "^0.29.0"
+dspy-ai = "2.3.4"
+apscheduler = "3.10.4"
+httpx = "^0.27.0"
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.0"
+```
 
 This stack is zero-cost friendly, scalable, and aligned with best practices as of early 2025 — ideal for AI-enhanced modular fitness coaching systems.

@@ -59,18 +59,18 @@ phases:
         folder_path: "./"
         entrypoint: "pyproject.toml"
         requirements:
-          python: "^3.12"
-          fastapi: "^0.111.0"
-          pydantic: "^2.6.4"
-          uvicorn: "^0.29.0"
-          apscheduler: "^4.0.0"
-          discord.py: "^2.3.2"
-          asyncpg: "^0.29.0"
-          dspy-ai: "^0.4.1"
-          python-dotenv: "^1.0.1"
-          pytest: "^8.0.0"
-          httpx: "^0.27.0"
-          pytest-asyncio: "^0.23.0"
+      python: "^3.11"
+      fastapi: "0.115.5"
+      pydantic: "2.5.0"
+      uvicorn: "0.22.0"
+      apscheduler: "3.10.4"
+      discord.py: "^2.3.2"
+      asyncpg: "^0.29.0"
+      dspy-ai: "2.3.4"
+      python-dotenv: "^1.0.1"
+      pytest: "^8.0.0"
+      httpx: "^0.27.0"
+      pytest-asyncio: "^0.23.0"
         
       - name: "schema_foundation"
         folder_path: "src/schemas/"
@@ -111,6 +111,18 @@ phases:
           - "Network configuration for services"
           - "Environment variable injection"
         source_doc: "docs/infrastructure/docker.md"
+
+        - "Normalize external field names (e.g. discord_user_id) at handler layer only — internal schema must exclusively use user_id"
+        - "Normalize goal values at handler layer to match schema enums: cut, bulk, recomp"
+    hardening_requirements:
+      - "Create separate Dockerfiles: Dockerfile.backend and Dockerfile.bot as defined in docker_infrastructure"
+      - "Implement setup_backend_container(), setup_bot_container(), and configure_compose_services() in Docker build process"
+      - "Add .dockerignore file to root to prevent unnecessary build context"
+      - "Ensure multi-stage Docker builds are used to optimize image size and security"
+      - "Stub or implement infrastructure documentation: docs/infrastructure/docker.md and env_variables.md"
+      - "Reject all dependencies not listed in tech-stack.md (e.g., ORM tools, unused libraries)"
+      - "Validate that pyproject.toml and poetry.lock remain synchronized with tech-stack.md"
+      - "Ensure schema authority is derived exclusively from schema_definitions.md and enforced via Pydantic"
 
 # ==================================================
 # PHASE 1: LOGGING INFRASTRUCTURE
@@ -298,6 +310,16 @@ phases:
         failure_modes:
           - "Invalid input → show error, allow retry"
           - "User already exists → show error message"
+    hardening_requirements:
+      - "Wrap database insert and welcome message in a single transaction to prevent partial failures"
+      - "Use .validate() or schema enforcement before inserting into client_profiles"
+      - "Use regex or external email validation library to ensure proper email format"
+      - "Enforce max-length constraints on form inputs to prevent Discord bypass injection"
+      - "Add contextual logging (user_id, function name, timing) to all logger calls"
+      - "Create test file: tests/test_onboarding_engine.py with coverage for: valid input, missing fields, duplicate user, DB failure"
+      - "Do not allow Cursor to invent fields, change schema, or adjust logic unless declared"
+      - "Log database connection failure and schema mismatches if table or columns are missing"
+      - "Document all assumptions inside source_doc: e.g. database must exist, bot must have permissions, profile schema must match"
 
 # ==================================================
 # PHASE 4: MEAL DELIVERY ENGINE

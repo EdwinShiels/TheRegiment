@@ -1,36 +1,37 @@
+# TheRegiment Docker Compose - Phase 0
 version: '3.8'
 
 services:
   backend:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     environment:
       - ENV=development
+      - PORT=8000
     env_file:
       - .env
     volumes:
-      - ./src:/app/src
-    depends_on:
-      - db
-    restart: unless-stopped
+      - ./src:/app/src  # Development volume mount
+    networks:
+      - regiment-network
 
   discord_bot:
     build:
       context: .
-      dockerfile: Dockerfile
-    command: ["poetry", "run", "python", "src/bot/main.py"]
+      dockerfile: Dockerfile.bot
     environment:
       - ENV=development
     env_file:
       - .env
     volumes:
-      - ./src:/app/src
+      - ./src:/app/src  # Development volume mount
     depends_on:
       - backend
-    restart: unless-stopped
+    networks:
+      - regiment-network
 
   db:
     image: postgres:15-alpine
@@ -48,5 +49,5 @@ volumes:
   postgres_data:
 
 networks:
-  default:
-    name: theregiment_network 
+  regiment-network:
+    driver: bridge 
