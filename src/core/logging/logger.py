@@ -220,4 +220,133 @@ def log_engine_failure(engine_name: str, error: Exception, context: Dict[str, An
             "original_engine": engine_name,
             "original_error": str(error)
         }
-        print(json.dumps(fallback_message), file=sys.stderr) 
+        print(json.dumps(fallback_message), file=sys.stderr)
+
+
+def log_engine_event(
+    user_id: str,
+    source_engine: str,
+    status: str,
+    data: Dict[str, Any],
+    timestamp: Optional[datetime] = None,
+    timezone_offset: Optional[str] = None
+) -> None:
+    """
+    Log engine event in LST Master unified format.
+    
+    Args:
+        user_id: Client identifier (Discord ID)
+        source_engine: Engine identifier (meal, training, checkin, cardio)
+        status: Event status (completed, missed, underperformed, failed)
+        data: Engine-specific payload
+        timestamp: Event timestamp (defaults to current UTC)
+        timezone_offset: Client timezone offset for date calculation (e.g. "UTC+2")
+        
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    from .lst_validation import validate_engine_event_format, calculate_client_date
+    
+    # Use current time if not provided
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc)
+    
+    # Ensure timestamp is UTC
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    else:
+        timestamp = timestamp.astimezone(timezone.utc)
+    
+    # Format timestamp as ISO 8601 UTC
+    formatted_timestamp = timestamp.isoformat().replace('+00:00', 'Z')
+    
+    # Calculate client-local date
+    client_date = calculate_client_date(timestamp, timezone_offset)
+    
+    # Create LST Master format log entry
+    log_entry = {
+        "user_id": user_id,
+        "date": client_date,
+        "timestamp": formatted_timestamp,
+        "source_engine": source_engine,
+        "status": status,
+        "data": data
+    }
+    
+    # Validate LST Master format
+    validate_engine_event_format(log_entry)
+    
+    # Get logger for the specific engine
+    logger = logging.getLogger(f"engine_{source_engine}")
+    
+    # Create log record with LST format as context
+    extra = {
+        "lst_format": log_entry,
+        "user_id": user_id,
+        "source_engine": source_engine,
+        "status": status,
+        "trace_id": str(uuid.uuid4())
+    }
+    
+    # Log with appropriate level based on status
+    if status == "failed":
+        log_level = logging.ERROR
+    elif status in ["missed", "underperformed"]:
+        log_level = logging.WARNING
+    else:
+        log_level = logging.INFO
+    
+    message = f"Engine event: {source_engine} - {status}"
+    logger.log(log_level, message, extra=extra)
+
+
+class LSTMasterFormatter(logging.Formatter):
+    """Formatter for LST Master unified log format."""
+    
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record in LST Master format if available."""
+        if hasattr(record, 'lst_format'):
+            # Use LST Master format directly with Unicode support
+            return json.dumps(record.lst_format, ensure_ascii=False)
+        else:
+            # Fallback to standard JSON format
+            return StructuredJSONFormatter().format(record)
+
+
+def setup_engine_logger(engine_name: str, log_level: str = "INFO") -> logging.Logger:
+    """
+    Setup logger for engine events using LST Master format.
+    
+    Args:
+        engine_name: Name of the engine (meal, training, checkin, cardio)
+        log_level: Logging level
+        
+    Returns:
+        Configured logger for engine events
+    """
+    logger_name = f"engine_{engine_name}"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, log_level.upper()))
+    
+    # Remove existing handlers
+    logger.handlers.clear()
+    
+    # Create logs directory
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    
+    # Console handler with LST Master formatting and UTF-8 encoding
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(LSTMasterFormatter())
+    # Set encoding to UTF-8 for Unicode support on Windows
+    if hasattr(console_handler.stream, 'reconfigure'):
+        console_handler.stream.reconfigure(encoding='utf-8')
+    logger.addHandler(console_handler)
+    
+    # File handler with LST Master formatting and UTF-8 encoding
+    file_handler = logging.FileHandler(log_dir / f"engine_{engine_name}.log", encoding='utf-8')
+    file_handler.setFormatter(LSTMasterFormatter())
+    logger.addHandler(file_handler)
+    
+    logger.propagate = False
+    return logger 
